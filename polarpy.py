@@ -19,12 +19,12 @@ def plot_polarisation_maps(
         plot_style='vector', overlay=True, unit_vector=False,
         vector_rep='magnitude', degrees=False, angle_offset=None,
         save='polarisation_image', title="", color='yellow',
-        cmap=None, cmap2 = None, alpha=1.0, image_cmap='gray', monitor_dpi=96,
+        cmap=None, alpha=1.0, image_cmap='gray', monitor_dpi=96,
         no_axis_info=True, invert_y_axis=True, ticks=None, scalebar=False,
         antialiased=False, levels=20, remove_vectors=False,
         quiver_units='width', pivot='middle', angles='xy',
         scale_units='xy', scale=None, headwidth=3.0, headlength=5.0,
-        headaxislength=4.5, width=None, minshaft=1, minlength=1):
+        headaxislength=4.5, width=None, minshaft=1, minlength=1, color_range = None):
     
     if isinstance(image, np.ndarray):
         pass
@@ -53,13 +53,14 @@ def plot_polarisation_maps(
         
     vector_label = polarisation.angle_label(
         vector_rep=vector_rep, units=units, degrees=degrees)
+    map_label = polarisation.angle_label(vector_rep = 'angle', units = units, degrees = degrees)
     
     if vector_rep == "magnitude":
         map_label = polarisation.angle_label(vector_rep = 'angle', units = units, degrees = degrees)
     elif vector_rep == 'angle':
         map_label = polarisation.angle_label(vector_rep = 'magnitude', units = units, degrees = degrees)
 
-    if plot_style == "polar_colorwheel":
+    if plot_style == "polar_colorwheel" or plot_style == "contour_vector_map":
         color_list = get_polar_2d_colorwheel_color_list(u, -v)
 
     # change all vector magnitudes to the same size
@@ -87,6 +88,8 @@ def plot_polarisation_maps(
          
     norm = colors.Normalize(vmin=min_val, vmax=max_val)
     map_norm = colors.Normalize(vmin = min_map_val, vmax = max_map_val)
+    if color_range:
+        map_norm = colors.Normalize(color_range[0], vmax = color_range[1])
 
     if monitor_dpi is not None:
         fig, ax = plt.subplots(figsize=[image.shape[1] / monitor_dpi,
@@ -184,8 +187,6 @@ def plot_polarisation_maps(
     elif plot_style == "contour_vector_map":
          if cmap is None:
             cmap = 'viridis'
-         if cmap2 is not None: 
-             cmap2 = 'cet_colorwheel'
 
          if isinstance(levels, list):
             levels_list = levels
@@ -195,18 +196,17 @@ def plot_polarisation_maps(
             elif vector_rep == "magnitude":
                 levels_list = np.linspace(min_map_val, max_map_val, levels)
 
-
          plt.tricontourf(
-            x, y, map_rep_val, cmap=cmap2, norm=map_norm, alpha=alpha,
+            x, y, map_rep_val, cmap=cmap, norm=map_norm, alpha=alpha,
             antialiased=antialiased, levels=levels_list)
          
          if not remove_vectors:
             ax.quiver(
-            x, y, u, v, vector_rep_val, color=color, cmap=cmap, norm=norm,
-            units=quiver_units, pivot=pivot, angles=angles,
-            scale_units=scale_units, scale=scale, headwidth=headwidth,
-            alpha=alpha, headlength=headlength, headaxislength=headaxislength,
-            width=width, minshaft=minshaft, minlength=minlength)
+            x, y, u, v, color=color_list, pivot=pivot, units=quiver_units,
+            angles=angles, scale_units=scale_units, scale=scale,
+            headwidth=headwidth, width=width, headlength=headlength,
+            headaxislength=headaxislength, minshaft=minshaft,
+            minlength=minlength)
 
     
     else:
@@ -234,7 +234,7 @@ def plot_polarisation_maps(
 
     # colorbars
     if (plot_style == "colormap" or plot_style == "colorwheel" or
-            plot_style == "contour" or plot_style == "contour_vector_map"):
+            plot_style == "contour"):
 
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         sm.set_array([])
@@ -242,12 +242,18 @@ def plot_polarisation_maps(
                             drawedges=False, ax = ax)
         cbar.set_ticks(ticks)
         cbar.ax.set_ylabel(vector_label)
-        if plot_style == "contour_vector_map":
-            sm = plt.cm.ScalarMappable(cmap=cmap2, norm = map_norm)
-            sm.set_array([])
-            cbar2 = plt.colorbar(mappable=sm, fraction=0.046, pad=0.04,
+    elif(plot_style == "contour_vector_map"):
+
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=map_norm)
+        sm.set_array([])
+        cbar = plt.colorbar(mappable=sm, fraction=0.046, pad=0.04,
                             drawedges=False, ax = ax)
-            cbar2.ax.set_ylabel(map_label)
+        cbar.set_ticks(ticks)
+        cbar.ax.set_ylabel(map_label)
+
+        ax2 = fig.add_subplot(444)
+        _make_color_wheel(ax2, rotation=None)
+        ax2.set_axis_off()
     elif plot_style == "polar_colorwheel":
         ax2 = fig.add_subplot(444)
         _make_color_wheel(ax2, rotation=None)
